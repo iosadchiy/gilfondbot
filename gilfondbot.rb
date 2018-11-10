@@ -16,6 +16,7 @@ require 'uri'
 #   GF_NROOMS - желаемое количество комнат через запятую, например, NROOMS = "1,2,3"
 #   GF_TG_TOKEN - токен телеграм бота
 #   GF_TG_CHAT_ID - ID чата с ботом (см. https://www.forsomedefinition.com/automation/creating-telegram-bot-notifications/)
+#   GF_FLAT_TTL - время в секундах, после которого квартира считается вновь появившейся
 #
 # Требует наличия phantomjs (http://phantomjs.org/download.html)
 #
@@ -25,6 +26,7 @@ PASSWORD = ENV['GF_PASSWORD']
 NROOMS = ENV['GF_NROOMS']
 TG_TOKEN = ENV['GF_TG_TOKEN']
 TG_CHAT_ID = ENV['GF_TG_CHAT_ID']
+FLAT_TTL = ENV['GF_FLAT_TTL']
 
 class GilfondBot
   include Capybara::DSL
@@ -152,21 +154,22 @@ class Notifier
 end
 
 class SeenDb
-  def initialize(filename)
+  def initialize(filename, ttl)
     @filename = filename
+    @ttl = ttl
     @seen = Marshal.load(File.read(@filename)) rescue {}
   end
 
   def seen?(flat_id)
-    @seen[flat_id]
+    @seen[flat_id] && @seen[flat_id] > Time.now - @ttl
   end
 
   def saw!(flat_id)
-    @seen[flat_id] = true
+    @seen[flat_id] = Time.now
   end
 
-  def self.with_db(filename, &block)
-    db = SeenDb.new(filename)
+  def self.with_db(filename, ttl, &block)
+    db = SeenDb.new(filename, ttl)
     yield(db)
   ensure
     db.persist
@@ -178,7 +181,7 @@ class SeenDb
 end
 
 def run!
-  SeenDb.with_db("seen.db") do |seen_db|
+  SeenDb.with_db("seen.db", FLAT_TTL) do |seen_db|
     bot = GilfondBot.new(
       rty_name: RTY_NAME,
       numfile: NUMFILE,
