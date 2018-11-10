@@ -29,7 +29,13 @@ TG_CHAT_ID = ENV['GF_TG_CHAT_ID']
 class GilfondBot
   include Capybara::DSL
 
-  def initialize(rty_name:, numfile:, password:, nrooms:, notifier:)
+  # rty_names: string
+  # numfile: string
+  # password: string
+  # nrooms: string, comma-separated
+  # notifier: interface: notify(n_added)
+  # seen_db: interface: seen?(flat_id), saw!(flat_id)
+  def initialize(rty_name:, numfile:, password:, nrooms:, notifier:, seen_db:)
     @options = {
       rty_name: rty_name,
       numfile: numfile,
@@ -37,6 +43,7 @@ class GilfondBot
       nrooms: nrooms,
     }
     @notifier = notifier
+    @seen_db = seen_db
     Capybara.default_driver = :poltergeist
     Capybara.save_path = 'screens'
     login
@@ -61,9 +68,11 @@ class GilfondBot
     houses.each do |house|
       select house, from: "rty_id"
       trs = find('.flatList table').all('tr[id].open')
+        .select{ |tr| !@seen_db.seen?(tr[:id]) }
         .select{ |tr| wanted_rooms.include?(tr.all('td')[3].text.to_i) }
       trs.each do |tr|
         tr.click_link("добавить")
+        seen_db.saw!(tr[:id])
         sleep(rand * 3)
       end
       n_added += trs.size
@@ -135,13 +144,42 @@ class Notifier
   end
 end
 
-bot = GilfondBot.new(
-  rty_name: RTY_NAME,
-  numfile: NUMFILE,
-  password: PASSWORD,
-  nrooms: NROOMS,
-  notifier: Notifier.new(tg_token: TG_TOKEN, tg_chat_id: TG_CHAT_ID)
-)
+class SeenDb
+  def initialize(filename)
+    @filename = filename
+    @seen = Marshal.load(File.read(@filename)) rescue {}
+  end
 
-bot.add_flats
-bot.set_priorities
+  def seen?(flat_id)
+    @seen[flat_id]
+  end
+
+  def saw!(flat_id)
+    @seen[flat_id] = true
+  end
+
+  def self.with_db(filename, &block)
+    db = SeenDb.new(filename)
+    yield(db)
+  ensure
+    db.persist
+  end
+
+  def persist
+    File.write(@filename, Marshal.dump(@seen))
+  end
+end
+
+SeenDb.with_db("seen.db") do |seen_db|
+  bot = GilfondBot.new(
+    rty_name: RTY_NAME,
+    numfile: NUMFILE,
+    password: PASSWORD,
+    nrooms: NROOMS,
+    notifier: Notifier.new(tg_token: TG_TOKEN, tg_chat_id: TG_CHAT_ID),
+    seen_db: seen_db,
+  )
+
+  bot.add_flats
+  bot.set_priorities
+end
