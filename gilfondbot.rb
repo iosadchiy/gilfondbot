@@ -76,12 +76,14 @@ class GilfondBot
         sleep(rand * 3)
       end
       n_added += trs.size
+      page.save_screenshot("add_flats.#{Time.now}.png") if trs.size > 0
     end
     notify_on_add(n_added) if n_added > 0
   rescue Capybara::ElementNotFound
     # it's ok
-  ensure
+  rescue
     page.save_screenshot("add_flats.#{Time.now}.png")
+    raise
   end
 
   def wanted_rooms
@@ -90,7 +92,7 @@ class GilfondBot
 
   def set_priorities
     visit "https://mail.gilfondrt.ru/private/requests.php"
-    priority = all('table table.border_1 tr[bgcolor="#FF0000"] input[type="text"]').map(&:value).map(&:to_i).max || 0
+    old_priority = priority = all('table table.border_1 tr[bgcolor="#FF0000"] input[type="text"]').map(&:value).map(&:to_i).max || 0
     all('table table.border_1 tr[bgcolor="#FF0000"] input[type="text"]').each do |elem|
       if elem.value.strip == ""
         priority += 1
@@ -98,8 +100,10 @@ class GilfondBot
       end
     end
     click_button "Сохранить изменения"
-  ensure
+    page.save_screenshot("set_priorities.#{Time.now}.png") if priority != old_priority
+  rescue
     page.save_screenshot("set_priorities.#{Time.now}.png")
+    raise
   end
 
   def notify_on_add(n_added)
