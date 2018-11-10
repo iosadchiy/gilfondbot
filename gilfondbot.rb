@@ -33,7 +33,7 @@ class GilfondBot
   # numfile: string
   # password: string
   # nrooms: string, comma-separated
-  # notifier: interface: notify(n_added)
+  # notifier: interface: notify_on_add(n_added)
   # seen_db: interface: seen?(flat_id), saw!(flat_id)
   def initialize(rty_name:, numfile:, password:, nrooms:, notifier:, seen_db:)
     @options = {
@@ -103,7 +103,7 @@ class GilfondBot
   end
 
   def notify_on_add(n_added)
-    @notifier.notify_telegram(n_added)
+    @notifier.notify_on_add(n_added)
   end
 
   # def list_flats
@@ -137,9 +137,12 @@ class Notifier
     }
   end
 
-  def notify_telegram(n_added)
+  def notify_on_add(n_added)
+    notify("Hooray! #{n_added} flat(s) added, check it out https://mail.gilfondrt.ru/private/requests.php")
+  end
+
+  def notify(text)
     uri = URI.parse("https://api.telegram.org/bot#{@options[:tg_token]}/sendMessage")
-    text = "Hooray! #{n_added} flat(s) added, check it out https://mail.gilfondrt.ru/private/requests.php"
     Net::HTTP.post_form(uri, chat_id: @options[:tg_chat_id], text: text)
   end
 end
@@ -170,16 +173,23 @@ class SeenDb
   end
 end
 
-SeenDb.with_db("seen.db") do |seen_db|
-  bot = GilfondBot.new(
-    rty_name: RTY_NAME,
-    numfile: NUMFILE,
-    password: PASSWORD,
-    nrooms: NROOMS,
-    notifier: Notifier.new(tg_token: TG_TOKEN, tg_chat_id: TG_CHAT_ID),
-    seen_db: seen_db,
-  )
+def run!
+  SeenDb.with_db("seen.db") do |seen_db|
+    bot = GilfondBot.new(
+      rty_name: RTY_NAME,
+      numfile: NUMFILE,
+      password: PASSWORD,
+      nrooms: NROOMS,
+      notifier: Notifier.new(tg_token: TG_TOKEN, tg_chat_id: TG_CHAT_ID),
+      seen_db: seen_db,
+    )
 
-  bot.add_flats
-  bot.set_priorities
+    bot.add_flats
+    bot.set_priorities
+  end
+rescue Exception => e
+  Notifier.new(tg_token: TG_TOKEN, tg_chat_id: TG_CHAT_ID)
+    .notify("Exception occured:\n\n#{e.message}\n\n#{e.backtrace.join("\n")}")
 end
+
+run!
