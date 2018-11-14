@@ -52,18 +52,46 @@ class GilfondBot
   end
 
   def login
-    visit "https://mail.gilfondrt.ru/private/auth.php"
-    fill_in "numfile", with: @options[:numfile]
-    fill_in "pass", with: @options[:password]
-    click_button "Подтвердить"
-    unless page.has_content?("Уважаемые участники жилищных программ!")
-      puts "Ooops!"
+    set_cookies
+    visit "https://mail.gilfondrt.ru/private/add_flat.php"
+    if has_content? "Номер учетного дела (####-######-######)"
+      fill_in "numfile", with: @options[:numfile]
+      fill_in "pass", with: @options[:password]
+      click_button "Подтвердить"
+      visit "https://mail.gilfondrt.ru/private/add_flat.php"
     end
+    save_cookies
+  end
+
+  def set_cookies
+    visit "https://mail.gilfondrt.ru/private/auth.php"
+    cookies = Marshal.load(File.read("cookies.dump")) rescue {}
+    page.driver.clear_cookies
+    cookies.each do |name, cookie|
+      page.driver.set_cookie(name, cookie.value, {
+        domain: cookie.domain,
+        path: cookie.path,
+        secure: cookie.secure?,
+        httponly: cookie.httponly?,
+        samesite: cookie.samesite,
+        expires: cookie.expires,
+      })
+    end
+  end
+
+  def save_cookies
+    cookies = page.driver.cookies
+    File.write("cookies.dump", Marshal.dump(cookies))
   end
 
   def add_flats
     visit "https://mail.gilfondrt.ru/private/add_flat.php"
     select @options[:rty_name], from: "cmn_id"
+
+    unless has_css?('select[name="rty_id"]')
+      page.save_screenshot("add_flats.no_select.#{Time.now}.png")
+      return
+    end
 
     houses = find('select[name="rty_id"]').all("option").collect(&:text).select{|h| h.strip != ""}
     n_added = 0
@@ -81,28 +109,28 @@ class GilfondBot
       page.save_screenshot("add_flats.#{Time.now}.png") if trs.size > 0
     end
     notify_on_add(n_added) if n_added > 0
-  rescue Capybara::ElementNotFound
-    # it's ok
   rescue
     page.save_screenshot("add_flats.#{Time.now}.png")
     raise
   end
 
   def wanted_rooms
-    @option[:nrooms].split(",").map(&:to_i)
+    @options[:nrooms].split(",").map(&:to_i)
   end
 
   def set_priorities
     visit "https://mail.gilfondrt.ru/private/requests.php"
-    old_priority = priority = all('table table.border_1 tr[bgcolor="#FF0000"] input[type="text"]').map(&:value).map(&:to_i).max || 0
-    all('table table.border_1 tr[bgcolor="#FF0000"] input[type="text"]').each do |elem|
-      if elem.value.strip == ""
+
+    old_priority = priority = all('table table.border_1 tr input[type="text"]').map(&:value).map(&:to_i).max || 0
+    i = 0
+    while all('table table.border_1 tr[bgcolor="#FF0000"] input[type="text"]').size > 0
+      priority += i
+      i += 1
+      all('table table.border_1 tr[bgcolor="#FF0000"] input[type="text"]').each do |elem|
         priority += 1
         elem.value = priority.to_s
       end
     end
-    click_button "Сохранить изменения"
-    page.save_screenshot("set_priorities.#{Time.now}.png") if priority != old_priority
   rescue
     page.save_screenshot("set_priorities.#{Time.now}.png")
     raise
