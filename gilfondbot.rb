@@ -89,7 +89,7 @@ class GilfondBot
     select @options[:rty_name], from: "cmn_id"
 
     unless has_css?('select[name="rty_id"]')
-      page.save_screenshot("add_flats.no_select.#{Time.now}.png")
+      page.save_screenshot("#{Time.now}.add_flats.no_select.png")
       return
     end
 
@@ -97,20 +97,22 @@ class GilfondBot
     n_added = 0
     houses.each do |house|
       select house, from: "rty_id"
+      # find matching open flats and add them
       trs = find('.flatList table').all('tr[id].open')
         .select{ |tr| !@seen_db.seen?(tr[:id]) }
         .select{ |tr| wanted_rooms.include?(tr.all('td')[3].text.to_i) }
       trs.each do |tr|
         tr.click_link("добавить")
-        seen_db.saw!(tr[:id])
         sleep(rand * 3)
       end
       n_added += trs.size
-      page.save_screenshot("add_flats.#{Time.now}.png") if trs.size > 0
+      page.save_screenshot("#{Time.now}.add_flats.found_flats.png") if trs.size > 0
+      # mark all flats as seen
+      find('.flatList table').all('tr[id]').map{|tr| tr[:id]}.each{|id| @seen_db.saw!(id)}
     end
     notify_on_add(n_added) if n_added > 0
   rescue
-    page.save_screenshot("add_flats.#{Time.now}.png")
+    page.save_screenshot("#{Time.now}.add_flats.exception.png")
     raise
   end
 
@@ -128,11 +130,11 @@ class GilfondBot
       i += 1
       all('table table.border_1 tr[bgcolor="#FF0000"] input[type="text"]').each do |elem|
         priority += 1
-        elem.value = priority.to_s
+        elem.set(priority.to_s)
       end
     end
   rescue
-    page.save_screenshot("set_priorities.#{Time.now}.png")
+    page.save_screenshot("#{Time.now}.set_priorities.png")
     raise
   end
 
