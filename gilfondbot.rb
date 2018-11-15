@@ -95,7 +95,6 @@ class GilfondBot
     end
 
     houses = find('select[name="rty_id"]').all("option").collect(&:text).select{|h| h.strip != ""}
-    n_added = 0
     houses.each do |house|
       select house, from: "rty_id"
       # find matching open flats and add them
@@ -103,15 +102,14 @@ class GilfondBot
         .select{ |tr| !@seen_db.seen?(tr[:id]) }
         .select{ |tr| wanted_rooms.include?(tr.all('td')[3].text.to_i) }
       trs.each do |tr|
+        notify_on_add(tr[:id])
         tr.click_link("добавить")
         sleep(rand * 3)
       end
-      n_added += trs.size
       save("add_flats.found_flats") if trs.size > 0
       # mark all flats as seen
       find('.flatList table').all('tr[id]').map{|tr| tr[:id]}.each{|id| @seen_db.saw!(id)}
     end
-    notify_on_add(n_added) if n_added > 0
   rescue
     save("add_flats.exception")
     raise
@@ -139,8 +137,10 @@ class GilfondBot
     raise
   end
 
-  def notify_on_add(n_added)
+  def notify_on_add(id)
     @notifier.notify_on_add(n_added)
+    flat_url = "https://mail.gilfondrt.ru/private/raitings_flat_2.php?flt_id=#{id}"
+    @notifier.notify("Adding #{flat_url} Requests: https://mail.gilfondrt.ru/private/requests.php")
   end
 
   def save(name)
@@ -156,10 +156,6 @@ class Notifier
       tg_token: tg_token,
       tg_chat_id: tg_chat_id,
     }
-  end
-
-  def notify_on_add(n_added)
-    notify("Hooray! #{n_added} flat(s) added, check it out https://mail.gilfondrt.ru/private/requests.php")
   end
 
   def notify(text)
