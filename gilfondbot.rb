@@ -90,7 +90,7 @@ class GilfondBot
     select @options[:rty_name], from: "cmn_id"
 
     unless has_css?('select[name="rty_id"]')
-      page.save_screenshot("#{Time.now}.add_flats.no_select.png")
+      save("add_flats.no_select")
       return
     end
 
@@ -107,13 +107,13 @@ class GilfondBot
         sleep(rand * 3)
       end
       n_added += trs.size
-      page.save_screenshot("#{Time.now}.add_flats.found_flats.png") if trs.size > 0
+      save("add_flats.found_flats") if trs.size > 0
       # mark all flats as seen
       find('.flatList table').all('tr[id]').map{|tr| tr[:id]}.each{|id| @seen_db.saw!(id)}
     end
     notify_on_add(n_added) if n_added > 0
   rescue
-    page.save_screenshot("#{Time.now}.add_flats.exception.png")
+    save("add_flats.exception")
     raise
   end
 
@@ -135,7 +135,7 @@ class GilfondBot
       end
     end
   rescue
-    page.save_screenshot("#{Time.now}.set_priorities.png")
+    save("set_priorities")
     raise
   end
 
@@ -143,27 +143,11 @@ class GilfondBot
     @notifier.notify_on_add(n_added)
   end
 
-  # def list_flats
-  #   visit "https://mail.gilfondrt.ru/private/add_flat.php"
-  #   select "Поручение №11318 Верхнеуслонский район", from: "cmn_id"
-
-  #   houses = find('select[name="rty_id"]').all("option").collect(&:text).select{|h| h.strip != ""}
-  #   houses.reduce({}) do |memo, house|
-  #     select house, from: "rty_id"
-  #     trs = find('.flatList table').all('tr[id]')
-  #     memo[house] = trs.map do |tr|
-  #         tds = tr.all('td')
-  #         {
-  #           tr_id: tr[:id],
-  #           url: tds[1].find('a')[:href],
-  #           number: tds[1].text,
-  #           floor: tds[2].text,
-  #           rooms: tds[3].text,
-  #         }
-  #       end
-  #     memo
-  #   end
-  # end
+  def save(name)
+    fname = Time.now.strftime("%m%d-%H:%M.") + name
+    page.save_screenshot("#{fname}.png")
+    save_page("#{fname}.html")
+  end
 end
 
 class Notifier
