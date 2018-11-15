@@ -47,6 +47,7 @@ class GilfondBot
     @notifier = notifier
     @seen_db = seen_db
     Capybara.default_driver = :poltergeist
+    # Capybara.default_driver = :selenium
     Capybara.save_path = 'screens'
     Capybara.default_max_wait_time = 10
     login
@@ -121,6 +122,7 @@ class GilfondBot
 
   def set_priorities
     visit "https://mail.gilfondrt.ru/private/requests.php"
+    # visit "http://gfb.miga.impuls1.ru/pages/requests-red.html"
 
     old_priority = priority = all('table table.border_1 tr input[type="text"]').map(&:value).map(&:to_i).max || 0
     i = 0
@@ -131,6 +133,7 @@ class GilfondBot
         priority += 1
         elem.set(priority.to_s)
       end
+      click_button "Сохранить изменения"
     end
   rescue
     save("set_priorities")
