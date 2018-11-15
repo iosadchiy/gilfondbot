@@ -91,7 +91,7 @@ class GilfondBot
     select @options[:rty_name], from: "cmn_id"
 
     unless has_css?('select[name="rty_id"]')
-      save("add_flats.no_select")
+      # save("add_flats.no_select")
       return
     end
 
