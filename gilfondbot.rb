@@ -48,6 +48,7 @@ class GilfondBot
     @seen_db = seen_db
     Capybara.default_driver = :poltergeist
     Capybara.save_path = 'screens'
+    Capybara.default_max_wait_time = 10
     login
   end
 
