@@ -141,7 +141,6 @@ class GilfondBot
   end
 
   def notify_on_add(id)
-    @notifier.notify_on_add(n_added)
     flat_url = "https://mail.gilfondrt.ru/private/raitings_flat_2.php?flt_id=#{id}"
     @notifier.notify("Adding #{flat_url} Requests: https://mail.gilfondrt.ru/private/requests.php")
   end
