@@ -194,7 +194,7 @@ class SeenDb
 end
 
 def run!
-  SeenDb.with_db("seen.db", FLAT_TTL) do |seen_db|
+  SeenDb.with_db("seen.db", FLAT_TTL.to_i) do |seen_db|
     bot = GilfondBot.new(
       rty_name: RTY_NAME,
       numfile: NUMFILE,
